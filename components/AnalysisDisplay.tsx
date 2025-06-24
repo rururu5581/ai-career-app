@@ -2,8 +2,10 @@ import React, { useRef, lazy, Suspense } from 'react';
 import { QuestionCard } from './QuestionCard';
 import { JobSuggestionCard } from './JobSuggestionCard';
 
+// PdfExportButtonは遅延読み込みされます
 const PdfExportButton = lazy(() => import('./PdfExportButton'));
 
+// 型定義
 interface InterviewQuestion {
   category: string;
   question: string;
@@ -21,16 +23,20 @@ interface AnalysisDisplayProps {
 }
 
 const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ analysisData, onReset }) => {
-  // useRefの型をHTMLDivElementに戻します。これが正しい指定です。
+  // ▼▼▼ ここを修正しました ▼▼▼
+  // PDF出力の対象となるdiv要素への参照を作成します。
+  // 型は `HTMLDivElement` を指定し、初期値は `null` です。
   const pdfExportAreaRef = useRef<HTMLDivElement>(null);
+  // ▲▲▲ ここまで修正 ▲▲▲
 
+  // analysisData がまだない場合は何も表示しない（安全対策）
   if (!analysisData || !analysisData.questions || !analysisData.jobRoles) {
     return null;
   }
 
   return (
     <div className="analysis-container">
-      {/* このdiv要素にrefを渡すため、型はHTMLDivElementである必要があります */}
+      {/* このdiv要素にrefを渡すことで、DOM要素への参照が確立されます */}
       <div ref={pdfExportAreaRef}>
         <div className="section">
           <h2 className="section-title">AIによる想定面談質問 (AI Suggested Interview Questions)</h2>
