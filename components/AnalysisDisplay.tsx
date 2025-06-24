@@ -1,51 +1,110 @@
+import React, { useRef } from 'react';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
-import React from 'react';
-import type { AnalysisResult } from '../types';
+// 外部コンポーネントのインポート（実際のファイルパスに合わせてください）
 import { QuestionCard } from './QuestionCard';
 import { JobSuggestionCard } from './JobSuggestionCard';
 
-interface AnalysisDisplayProps {
-  result: AnalysisResult;
+// -------------------- 型定義 --------------------
+// `types.ts`で定義されている型と一致させる
+
+// 質問カード用のデータ型
+interface InterviewQuestion {
+  category: string;
+  question: string; // "text" ではなく "question" だった
 }
 
-export const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ result }) => {
-  return (
-    <div className="space-y-10">
-      <div>
-        <h3 className="text-2xl font-semibold text-primary mb-6 flex items-center">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="heroicon mr-3 h-7 w-7 text-secondary">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z" />
-          </svg>
-          AIによる想定面談質問 (AI Suggested Interview Questions)
-        </h3>
-        {result.interviewQuestions && result.interviewQuestions.length > 0 ? (
-          <div className="space-y-4">
-            {result.interviewQuestions.map((q, index) => (
-              <QuestionCard key={index} question={q} />
-            ))}
-          </div>
-        ) : (
-          <p className="text-neutral">質問は生成されませんでした。(No questions were generated.)</p>
-        )}
-      </div>
+// おすすめ職種カード用のデータ型
+interface JobSuggestion {
+  title: string;
+  reasoning: string; // "reasoning" プロパティを追加
+}
 
-      <div>
-        <h3 className="text-2xl font-semibold text-primary mb-6 flex items-center">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="heroicon mr-3 h-7 w-7 text-accent">
-             <path strokeLinecap="round" strokeLinejoin="round" d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 0 1-2.25 2.25h-13.5A2.25 2.25 0 0 1 3 18V6.375c0-.621.504-1.125 1.125-1.125H7.5M12 15L9 12l3-3m5.25 6L14.25 12l3-3" />
-          </svg>
-          AIによるおすすめ職種 (AI Recommended Job Roles)
-        </h3>
-        {result.jobSuggestions && result.jobSuggestions.length > 0 ? (
-          <div className="grid md:grid-cols-2 gap-4">
-            {result.jobSuggestions.map((job, index) => (
-              <JobSuggestionCard key={index} suggestion={job} />
-            ))}
-          </div>
-        ) : (
-          <p className="text-neutral">職種の提案はありませんでした。(No job suggestions were generated.)</p>
-        )}
+// コンポーネントが受け取るprops全体の型
+interface AnalysisDisplayProps {
+  analysisData: {
+    questions: InterviewQuestion[]; // 型名を変更
+    jobRoles: JobSuggestion[];   // 型名を変更
+  };
+  onReset: () => void;
+}
+
+// -------------------- コンポーネント本体 --------------------
+const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ analysisData, onReset }) => {
+  // PDFとして出力したいエリア全体を囲むためのref
+  const pdfExportAreaRef = useRef<HTMLDivElement>(null);
+
+  const handleExportPdf = () => {
+    const elementToCapture = pdfExportAreaRef.current;
+    if (!elementToCapture) {
+      console.error("PDF出力対象の要素が見つかりません。");
+      return;
+    }
+
+    html2canvas(elementToCapture, { scale: 2, useCORS: true }).then(canvas => {
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const imgProps = pdf.getImageProperties(imgData);
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+      let heightLeft = pdfHeight;
+      let position = 0;
+      const pageHeight = pdf.internal.pageSize.getHeight();
+
+      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft >= 0) {
+        position = heightLeft - pdfHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+        heightLeft -= pageHeight;
+      }
+      
+      pdf.save('AIキャリア分析結果.pdf');
+    });
+  };
+
+  // analysisDataが存在しない、または空の場合は何も表示しない
+  if (!analysisData || !analysisData.questions || !analysisData.jobRoles) {
+    return null;
+  }
+
+  return (
+    // classNameはご自身のプロジェクトのCSSに合わせて調整してください
+    <div className="analysis-container">
+      {/* ↓↓↓ このdivが出力範囲になります ↓↓↓ */}
+      <div ref={pdfExportAreaRef}>
+<div className="section">
+  <h2 className="section-title">AIによる想定面談質問 (AI Suggested Interview Questions)</h2>
+  {analysisData.questions.map((q, index) => (
+    // こちらは "question" でデータを渡します
+    <QuestionCard key={index} question={q} />
+  ))}
+</div>
+
+<div className="section">
+  <h2 className="section-title">AIによるおすすめ職種 (AI Recommended Job Roles)</h2>
+  {analysisData.jobRoles.map((role, index) => (
+    // こちらは "suggestion" でデータを渡します
+    <JobSuggestionCard key={index} suggestion={role} />
+  ))}
+</div>
+      </div>
+      {/* ↑↑↑ このdivが出力範囲になります ↑↑↑ */}
+
+      <div className="button-area">
+        <button onClick={handleExportPdf} className="export-button">
+          結果をPDFでダウンロード
+        </button>
+        <button onClick={onReset} className="reset-button">
+          新しい経歴書で分析する
+        </button>
       </div>
     </div>
   );
 };
+
+export default AnalysisDisplay;
