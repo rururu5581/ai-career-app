@@ -1,71 +1,80 @@
+// Gemini APIをインポート
+import { GoogleGenerativeAI } from '@google/generative-ai';
+// 型定義をインポート
 import type { AnalysisResult } from '../types';
 
-// ... (おそらくGoogleGenerativeAIのインポートなどがあるはず)
-
-// ★★★ analyzeResumeWithGemini 関数を以下のように修正してください ★★★
+/**
+ * 職務経歴書テキストをGemini APIに送信し、分析結果（想定質問とおすすめ職種）を返す関数
+ * @param text ユーザーが入力した職務経歴書のテキスト
+ * @returns 分析結果のオブジェクト (Promise)
+ */
 export const analyzeResumeWithGemini = async (text: string): Promise<AnalysisResult> => {
-  if (!process.env.API_KEY) {
+  // 環境変数からAPIキーを取得
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    // APIキーがない場合はエラーを投げる
     throw new Error("APIキーが設定されていません。");
   }
 
-  // Gemini APIへのリクエストをセットアップ (既存のコードに合わせてください)
-  // const genAI = new GoogleGenerativeAI(process.env.API_KEY);
-  // const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-  
-  const prompt = `
-    以下の職務経歴書を分析し、次のJSON形式で出力してください。
-    - "questions": 想定される面接質問を5つ生成します。質問は"category"（例:「経験について」）と"question"（質問文）のペアにしてください。
-    - "jobRoles": この経歴にマッチする職種を3つ提案します。"title"（職種名）と"reasoning"（推薦理由）のペアにしてください。
+  // Gemini APIのクライアントを初期化
+  const genAI = new GoogleGenerativeAI(apiKey);
+  // 使用するモデルを指定
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 
+  // AIに渡す指示（プロンプト）を作成
+  const prompt = `
+    # 指示
+    あなたは優秀なキャリアアドバイザーです。
+    以下の##職務経歴書を分析し、次の##出力形式（JSON）に従って、日本語で出力してください。
+
+    ## 出力形式
+    - "questions": 経歴に基づいた具体的な面接の想定質問を5つ生成してください。質問は"category"（質問のカテゴリ）と"question"（質問文）のペアにしてください。
+    - "jobRoles": この経歴の強みを活かせる職種を3つ提案してください。"title"（職種名）と"reasoning"（なぜその職種が適しているかの簡潔な理由）のペアにしてください。
+
+    \`\`\`json
     {
       "questions": [
-        { "category": "カテゴリ", "question": "質問文" }
+        { "category": "経験の深掘り", "question": "（具体的な質問文）" }
       ],
       "jobRoles": [
-        { "title": "職種名", "reasoning": "推薦理由" }
+        { "title": "（具体的な職種名）", "reasoning": "（具体的な推薦理由）" }
       ]
     }
+    \`\`\`
 
-    ---
-    職務経歴書:
+    ## 職務経歴書
     ${text}
   `;
 
-  // const result = await model.generateContent(prompt);
-  // const response = await result.response;
-  // const responseText = response.text();
-
-  // --- ↓↓↓ ここからが重要な変更点 ↓↓↓ ---
-  
-  // テスト用のダミーデータ（実際のAPI通信がうまくいくまでの仮データ）
-  // 実際のAPI通信を行う場合は、以下の4行はコメントアウトしてください。
-  const responseText = JSON.stringify({
-    questions: [{ category: "自己紹介", question: "これまでの経歴を簡単に教えてください。" }],
-    jobRoles: [{ title: "Webデベロッパー", reasoning: "フロントエンドとバックエンドの経験が豊富です。" }]
-  });
-
-
   try {
-    // AIからの応答テキストからJSON部分を抽出する
+    // AIにプロンプトを送信し、応答を待つ
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const responseText = response.text();
+
+    // AIからの応答テキストからJSON部分を安全に抽出する
     // マークダウンのコードブロック(` ```json `と` ``` `)で囲まれている場合を考慮
     const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/);
     const jsonString = jsonMatch ? jsonMatch[1] : responseText;
     
-    // JSON文字列をパースしてオブジェクトに変換
+    // JSON文字列をパース（解析）してJavaScriptオブジェクトに変換
     const parsedResult: AnalysisResult = JSON.parse(jsonString);
 
-    // 型ガード（念のため、データ構造が正しいかチェック）
+    // データ構造が正しいかどうかの簡易チェック（型ガード）
     if (
       !Array.isArray(parsedResult.questions) || 
       !Array.isArray(parsedResult.jobRoles)
     ) {
-      throw new Error("AIからの応答の形式が正しくありません。");
+      // 期待した形式でなければエラーを投げる
+      throw new Error("AIからの応答のJSON形式が期待したものと異なります。");
     }
 
+    // 正しい形式のオブジェクトを返す
     return parsedResult;
 
   } catch (error) {
-    console.error("AIからの応答のパースに失敗しました:", responseText, error);
-    throw new Error("AIからの応答を処理できませんでした。");
+    // エラーが発生した場合は、コンソールに詳細を記録し、より分かりやすいエラーを投げる
+    console.error("Gemini APIの処理中にエラーが発生しました:", error);
+    throw new Error("AIによる分析中に予期せぬエラーが発生しました。");
   }
 };
