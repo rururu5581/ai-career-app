@@ -1,16 +1,15 @@
-
 import React, { useState, useCallback } from 'react';
 import { ResumeUpload } from './components/ResumeUpload';
-import { AnalysisDisplay } from './components/AnalysisDisplay';
+import AnalysisDisplay from './components/AnalysisDisplay';
 import { LoadingSpinner } from './components/LoadingSpinner';
 import { ErrorMessage } from './components/ErrorMessage';
 import { analyzeResumeWithGemini } from './services/geminiService';
-import type { AnalysisResult } from './types';
+// ↓↓↓ 修正した types.ts からインポートします
+import type { AnalysisResult } from './types'; 
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 
 const App: React.FC = () => {
-  const [resumeText, setResumeText] = useState<string>('');
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +28,6 @@ const App: React.FC = () => {
       setApiKeyError("APIキーが設定されていません。環境変数 'API_KEY' を設定してください。");
       return;
     }
-    setResumeText(text);
     setIsLoading(true);
     setError(null);
     setAnalysisResult(null);
@@ -50,7 +48,6 @@ const App: React.FC = () => {
   }, []);
 
   const handleClear = () => {
-    setResumeText('');
     setAnalysisResult(null);
     setError(null);
     setIsLoading(false);
@@ -79,18 +76,9 @@ const App: React.FC = () => {
           
           {error && !isLoading && <ErrorMessage message={error} />}
 
+          {/* ↓↓↓ ボタンが重複しないように、AnalysisDisplayのみを表示 ↓↓↓ */}
           {analysisResult && !isLoading && (
-            <>
-              <AnalysisDisplay result={analysisResult} />
-              <div className="mt-8 text-center">
-                <button
-                  onClick={handleClear}
-                  className="px-6 py-3 bg-primary hover:bg-primary-dark text-white font-semibold rounded-lg shadow-md transition duration-150 ease-in-out transform hover:scale-105"
-                >
-                  新しい経歴書で分析する (Analyze New Resume)
-                </button>
-              </div>
-            </>
+            <AnalysisDisplay analysisData={analysisResult} onReset={handleClear} />
           )}
         </div>
       </main>

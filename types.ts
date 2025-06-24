@@ -1,30 +1,18 @@
-
+// 質問データの型
 export interface InterviewQuestion {
   category: string;
   question: string;
 }
 
+// おすすめ職種のデータの型
 export interface JobSuggestion {
   title: string;
   reasoning: string;
 }
 
+// Geminiからの分析結果全体の型
+// これがAnalysisDisplayコンポーネントが期待するデータ構造
 export interface AnalysisResult {
-  interviewQuestions: InterviewQuestion[];
-  jobSuggestions: JobSuggestion[];
-}
-
-export interface GroundingChunkWeb {
-  uri: string;
-  title: string;
-}
-
-export interface GroundingChunk {
-  web?: GroundingChunkWeb;
-  // May include other types of chunks in the future
-}
-
-export interface GroundingMetadata {
-  groundingChunks?: GroundingChunk[];
-  // May include searchQueries etc.
+  questions: InterviewQuestion[];
+  jobRoles: JobSuggestion[];
 }
