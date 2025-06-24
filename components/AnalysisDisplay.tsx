@@ -1,6 +1,4 @@
 import React, { useRef } from 'react';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 
 // 外部コンポーネントのインポート（実際のファイルパスに合わせてください）
 import { QuestionCard } from './QuestionCard';
@@ -35,12 +33,43 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ analysisData, onReset
   // PDFとして出力したいエリア全体を囲むためのref
   const pdfExportAreaRef = useRef<HTMLDivElement>(null);
 
-  const handleExportPdf = () => {
-    const elementToCapture = pdfExportAreaRef.current;
-    if (!elementToCapture) {
-      console.error("PDF出力対象の要素が見つかりません。");
-      return;
+const handleExportPdf = async () => { // "async"を追加
+  const elementToCapture = pdfExportAreaRef.current;
+  if (!elementToCapture) {
+    console.error("PDF出力対象の要素が見つかりません。");
+    return;
+  }
+
+  // ↓↓↓ ここからが変更点 ↓↓↓
+  // ボタンが押されてからライブラリを読み込む
+  const html2canvas = (await import('html2canvas')).default;
+  const jsPDF = (await import('jspdf')).default;
+  // ↑↑↑ ここまでが変更点 ↑↑↑
+
+  html2canvas(elementToCapture, { scale: 2, useCORS: true }).then(canvas => {
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const imgProps = pdf.getImageProperties(imgData);
+    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+    let heightLeft = pdfHeight;
+    let position = 0;
+    const pageHeight = pdf.internal.pageSize.getHeight();
+
+    pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+    heightLeft -= pageHeight;
+
+    while (heightLeft >= 0) {
+      position = heightLeft - pdfHeight;
+      pdf.addPage();
+      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+      heightLeft -= pageHeight;
     }
+    
+    pdf.save('AIキャリア分析結果.pdf');
+  });
+};
 
     html2canvas(elementToCapture, { scale: 2, useCORS: true }).then(canvas => {
       const imgData = canvas.toDataURL('image/png');
