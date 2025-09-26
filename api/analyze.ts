@@ -25,11 +25,11 @@ export default async function handler(
       throw new Error("API_KEY is not configured on the server.");
     }
 
-    // Gemini APIのクライアントを初期化
+    // Gemini APIのクライアントを初期化（最新版を常に使用）
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 
-    // ▼▼▼ AIに渡す指示（プロンプト）を強化しました ▼▼▼
+    // プロンプトを定義
     const prompt = `
       # 指示
       あなたは、入力されたテキストを分析し、必ず指定されたJSON形式で応答を返す、厳格なデータ処理APIです。
@@ -58,24 +58,20 @@ export default async function handler(
     const response = await result.response;
     const responseText = response.text();
 
-    // デバッグ用にAIからの生の応答をサーバーログに出力
     console.log("AIからの生の応答:", responseText);
 
-    // AIからの応答テキストからJSON部分を安全に抽出する
-    // マークダウンのコードブロック(` ```json `と` ``` `)で囲まれている場合を考慮
+    // JSON部分を抽出
     const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/);
     const jsonString = jsonMatch ? jsonMatch[1].trim() : responseText.trim();
     
-    // 抽出したJSON文字列が空でないか確認
     if (!jsonString) {
       throw new Error("AIからの応答から有効なJSONを抽出できませんでした。");
     }
 
-    // 成功したら、抽出したJSON文字列をフロントエンドに返す
+    // フロントエンドに返す
     res.status(200).json({ result: jsonString });
 
   } catch (error: any) {
-    // エラーが発生した場合は、サーバーログに記録し、エラーメッセージを返す
     console.error("Error in API route (/api/analyze):", error);
     res.status(500).json({ message: error.message || 'An unknown server error occurred.' });
   }
