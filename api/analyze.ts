@@ -1,8 +1,12 @@
 // /api/analyze.ts
+
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(
+  req: VercelRequest,
+  res: VercelResponse
+) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Only POST requests are allowed' });
   }
@@ -18,29 +22,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       throw new Error("API_KEY is not configured on the server.");
     }
 
+    // Gemini APIのクライアントを初期化（無印に固定）
     const genAI = new GoogleGenerativeAI(apiKey);
-
-    // 1. 利用可能なモデル一覧を取得
-    const models = await genAI.listModels();
-
-    // 2. gemini-1.5-flash 系のモデルだけフィルタ
-    const flashModels = models.filter((m: any) =>
-      m.name.includes("gemini-1.5-flash")
-    );
-
-    if (flashModels.length === 0) {
-      throw new Error("利用可能な gemini-1.5-flash モデルが見つかりません。");
-    }
-
-    // 3. 名前順で最新っぽいものを選択（例: -002 > -001 > 無印）
-    //    APIの仕様によっては "supportedMethods" を見て generateContent 可能なものだけ残す
-    flashModels.sort((a: any, b: any) => b.name.localeCompare(a.name));
-    const latestModel = flashModels[0].name;
-
-    console.log("選択された最新版モデル:", latestModel);
-
-    // 4. 最新モデルで生成
-    const model = genAI.getGenerativeModel({ model: latestModel });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     const prompt = `
       # 指示
@@ -68,6 +52,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const result = await model.generateContent(prompt);
     const response = await result.response;
     const responseText = response.text();
+
+    console.log("AIからの生の応答:", responseText);
 
     const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/);
     const jsonString = jsonMatch ? jsonMatch[1].trim() : responseText.trim();
