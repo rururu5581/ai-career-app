@@ -7,29 +7,25 @@ export default async function handler(
   req: VercelRequest,
   res: VercelResponse
 ) {
-  // POSTリクエスト以外は受け付けない
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Only POST requests are allowed' });
   }
 
   try {
-    // フロントエンドから送信されたテキストを取得
     const { text } = req.body;
     if (!text) {
       return res.status(400).json({ message: 'text is required from the client' });
     }
     
-    // 環境変数からAPIキーを取得
     const apiKey = process.env.API_KEY;
     if (!apiKey) {
       throw new Error("API_KEY is not configured on the server.");
     }
 
-    // Gemini APIのクライアントを初期化（最新版を常に使用）
+    // Gemini APIのクライアントを初期化（001に固定）
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-001" });
 
-    // プロンプトを定義
     const prompt = `
       # 指示
       あなたは、入力されたテキストを分析し、必ず指定されたJSON形式で応答を返す、厳格なデータ処理APIです。
@@ -53,14 +49,12 @@ export default async function handler(
       ${text}
     `;
 
-    // AIにプロンプトを送信し、応答を待つ
     const result = await model.generateContent(prompt);
     const response = await result.response;
     const responseText = response.text();
 
     console.log("AIからの生の応答:", responseText);
 
-    // JSON部分を抽出
     const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/);
     const jsonString = jsonMatch ? jsonMatch[1].trim() : responseText.trim();
     
@@ -68,7 +62,6 @@ export default async function handler(
       throw new Error("AIからの応答から有効なJSONを抽出できませんでした。");
     }
 
-    // フロントエンドに返す
     res.status(200).json({ result: jsonString });
 
   } catch (error: any) {
